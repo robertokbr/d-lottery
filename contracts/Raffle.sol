@@ -33,6 +33,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     uint32 private immutable i_callbackGasLimit;
     uint32 private constant NUM_WORDS = 1;
     uint256 private s_lastTimestamp;
+    uint256 private immutable i_interval;
 
     // Lotery variables
     address payable private s_recentWinner;
@@ -48,7 +49,8 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         uint256 entranceFee,
         bytes32 gasLane,
         uint64 subscriptionId,
-        uint32 callbackGasLimit
+        uint32 callbackGasLimit,
+        uint256 interval
     ) VRFConsumerBaseV2(vrfCordinatorV2) {
         i_entranceFee = entranceFee;
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCordinatorV2);
@@ -56,6 +58,8 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
         s_raffleState = RaffleState.OPEN;
+        s_lastTimestamp = block.timestamp;
+        i_interval = interval;
     }
 
     function enterRaffle() public payable {
@@ -85,7 +89,12 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         bytes calldata
         /* checkData */
     ) external view override returns (bool upkeepNeeded, bytes memory /* performData */) {
-        upkeepNeeded = (block.timestamp - s_lastTimestamp) > interval;
+        bool isOpen = s_raffleState == RaffleState.OPEN;
+        bool hasEnoughPlayers = s_players.length > 0;
+        bool timePassed = (block.timestamp - s_lastTimestamp) > i_interval;
+        bool hasEnoughETH = address(this).balance > 0;
+
+        upkeepNeeded = (isOpen && hasEnoughPlayers && timePassed && hasEnoughETH);
         // We don't use the checkData in this example. The checkData is defined when the Upkeep was registered.
     }
 
